@@ -71,6 +71,7 @@ jobs:
           heroku buildpacks:add --index 1 https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git
           heroku buildpacks:add --index 1 https://github.com/primaryobjects/heroku-buildpack-libsndfile.git
           heroku buildpacks:add --index 1 heroku-community/apt
+          heroku buildpacks:add https://github.com/gerywahyunugraha/heroku-google-application-credentials-buildpack.git
           heroku buildpacks:add heroku/python
       - name: Push to Heroku
         run: git push -f heroku main
