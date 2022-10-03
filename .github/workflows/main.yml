@@ -1,0 +1,76 @@
+name: CI Workflow
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  py_test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v3
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          sudo apt install portaudio19-dev
+          pip install pylint pytest pytest-cov
+          pip install -r requirements.txt
+      - name: Analyze
+        continue-on-error: true
+        run: pylint $(git ls-files '*.py')
+      # - name: Test
+      #   run: |
+      #     python -m pytest --cov=./ --cov-report=xml
+      # - name: Upload coverage report to Codecov
+      #   uses: codecov/codecov-action@v2
+      #   with:
+      #     env_vars: OS,PYTHON
+      #     fail_ci_if_error: false
+      #     flags: unittests
+      #     verbose: true
+
+  heroku_deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Heroku
+    needs: py_test
+    if: "contains(github.event.head_commit.message, 'deploy to heroku')"
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Heroku login
+        run: |
+          cat > ~/.netrc <<EOF
+            machine api.heroku.com
+              login $HEROKU_EMAIL
+              password ${{ secrets.HEROKU_API_KEY }}
+            machine git.heroku.com
+              login $HEROKU_EMAIL
+              password ${{ secrets.HEROKU_API_KEY }}
+          EOF
+        env:
+          HEROKU_EMAIL: karthicksharma11@gmail.com
+      - name: Add Heroku remote
+        run: heroku git:remote --app mock-buddy-audio-server
+      - name: Purge cache
+        run: |
+          heroku plugins:install heroku-repo
+          heroku repo:purge_cache -a mock-buddy
+      - name: Add buildpacks
+        continue-on-error: true
+        run: |
+          heroku buildpacks:add --index 1 https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git
+          heroku buildpacks:add --index 1 https://github.com/primaryobjects/heroku-buildpack-libsndfile.git
+          heroku buildpacks:add --index 1 heroku-community/apt
+          heroku buildpacks:add heroku/python
+      - name: Push to Heroku
+        run: git push -f heroku main
