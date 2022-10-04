@@ -61,6 +61,9 @@ def get_audio_fb():
     speech_rate = audio.get_speech_rate()
     ser_fb = ser.get_feedback()
 
+    ser.reset()
+    audio.reset()
+
     return {
         "wpm": speech_rate,
         "fb": json.dumps(ser_fb)

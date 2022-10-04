@@ -19,6 +19,9 @@ class AudioUtil:
         self.stt = GoogleSTT()
         self.__speech_rate = []
 
+    def reset(self):
+        self.__speech_rate = []
+
     def change_audio_format(self, file_name):
         """Convert audio file to Google STT required format
 

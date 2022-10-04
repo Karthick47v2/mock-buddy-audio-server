@@ -15,6 +15,9 @@ class SER:
         self.__mfcc_model = keras.models.load_model('ser/mfcc_2048')
         self.__fb = []
 
+    def reset(self):
+        self.__fb = []
+
     def load_wav(self, path, stop):
         # 22.05 kHz, 16 bit
         y, sr = librosa.load(path, mono=True)
