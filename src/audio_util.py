@@ -3,7 +3,6 @@
 import librosa
 import soundfile as sf
 
-from .ggl.google_storage import GoogleStorage
 from .ggl.google_stt import GoogleSTT
 from .ggl.vad import VAD
 
@@ -11,53 +10,41 @@ from .ggl.vad import VAD
 class AudioUtil:
     """Class holding all operations for processing audio"""
 
-    def __init__(self, file_name):
+    def __init__(self):
         """Initialize all clients
 
         Args:
             file_name (str):name of wav file
         """
-        self.__file_name = file_name
-        self.storage = GoogleStorage()
         self.stt = GoogleSTT()
+        self.__speech_rate = []
 
-    @property
-    def file_name(self):
-        """Getter for file_name
-
-        Returns:
-            str: return file_name
-        """
-        return self.__file_name
-
-    def change_audio_format(self, audio_file):
+    def change_audio_format(self, file_name):
         """Convert audio file to Google STT required format
 
         Args:
-            file (FileStorage): wrapper for wav file
+            file_name (str): audio file name
         """
-        audio_file.save(self.__file_name)
-
-        # pylint: disable=fixme
-        # TODO: currently saving blob to local before processing (mandatory for converting
-        # blob to wav)... Need to find an alternative way
-        # some brower's versions doesn't support recording on requied audio format,
-        #  so explicitly converting to required format in backend
         audio_file, s_rate = librosa.load(
-            self.file_name, sr=self.stt.SAMPLE_RATE)
+            file_name, sr=self.stt.SAMPLE_RATE)
+
         audio_file = librosa.to_mono(audio_file)
 
-        sf.write(self.__file_name, audio_file, s_rate, subtype='PCM_16')
+        sf.write(file_name, audio_file,
+                 s_rate, subtype='PCM_16')
 
-    def get_speech_rate(self):
+    def detect_speech_rate(self, file_name):
         """Return speech rate in wpm (words per minute)
 
         Returns:
             float: speech rate in wpm
         """
-        word_count = self.stt.get_word_count(
-            self.storage.bucket_name, self.file_name)
-        vad_time = VAD(self.file_name).get_speech_time() + \
+        word_count = self.stt.get_word_count(file_name)
+        vad_time = VAD(file_name).get_speech_time() + \
             1e-3  # to avoid division by zero error
 
-        return word_count * 60 / vad_time
+        self.__speech_rate.append(word_count * 60 / vad_time)
+
+    def get_speech_rate(self):
+        s_len = 1 if len(self.__speech_rate) == 0 else len(self.__speech_rate)
+        return sum(self.__speech_rate) / s_len
