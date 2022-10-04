@@ -1,57 +1,75 @@
 """Process client requests"""
 
 import os
+import base64
 import datetime
 
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, json
+from flask_socketio import SocketIO
 from flask_cors import CORS
 
 from src.audio_util import AudioUtil
+from src.ser import SER
 
 # create app instance with CORS
 app = Flask(__name__)
 cors = CORS(app)
 
+# socket comm
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 load_dotenv()
 
+audio = AudioUtil()
+ser = SER()
 
-@app.post('/audio_out/')
-def get_audio():
-    """Process audio file sent from client
+# SocketIO events
+
+
+@socketio.on('audio_out')
+def get_audio(request):
+    """Process audio file sent from client"""
+
+    # name as M_D_Y_H_M_S format in order to avoid overwriting issue
+    file_name = datetime.datetime.now().strftime(
+        '%m_%d_%Y_%H_%M_%S') + '.wav'
+
+    if len(request.split(',')) > 1:
+
+        with open(file_name, "wb") as wav_file:
+            decode_string = base64.b64decode(request.split(',')[1])
+            wav_file.write(decode_string)
+
+        audio.change_audio_format(file_name)
+        audio.detect_speech_rate(file_name)
+
+        ser.predict(file_name)
+
+    # delete existing file in storage
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+
+@app.get('/audio_fb/')
+def get_audio_fb():
+    """Return feedback
 
     Returns:
         dict[str,str]: response
     """
-    # try:
-    req_file = request.files['file']
-    # name as M_D_Y_H_M_S format in order to avoid overwriting issue
-    audio_file = AudioUtil(file_name=datetime.datetime.now().strftime(
-        '%m_%d_%Y_%H_%M_%S') + '.wav')
-
-    audio_file.change_audio_format(req_file)
-
-    # upload audio to ggl storage (mandatory for transcribing long audio (> 1mins))
-    audio_file.storage.upload_to_bucket(audio_file.file_name)
-
-    speech_rate = audio_file.get_speech_rate()
-
-    # delete existing file in storage (local and cloud)
-    audio_file.storage.delete_file(audio_file.file_name)
-    if os.path.exists(audio_file.file_name):
-        os.remove(audio_file.file_name)
+    speech_rate = audio.get_speech_rate()
+    ser_fb = ser.get_feedback()
 
     return {
-        'status': 200,
-        'wpm': speech_rate
+        "wpm": speech_rate,
+        "fb": json.dumps(ser_fb)
     }
-    # pylint: disable=broad-except
-    # except Exception:
-    # return {
-    # 'status': 400
-    # }
 
 
 # main thread
 if __name__ == '__main__':
-    app.run(port=5000)
+
+    # currently using eventlet server for socket production-env
+    # socket will also take care of restful api calls
+    socketio.run(app, port=5000, debug=True)
