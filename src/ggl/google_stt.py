@@ -25,13 +25,14 @@ class GoogleSTT:
         self.__config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=GoogleSTT.SAMPLE_RATE,
-            language_code='en-IN',
+            language_code='en-US',
             use_enhanced=True,
             audio_channel_count=GoogleSTT.__NO_OF_CHANNELS,
             metadata=metadata,
         )
 
-    def get_word_count(self, bucket_name, file_name):
+    # def get_word_count(self, bucket_name, file_name):
+    def get_word_count(self, file_name):
         """Calculate word count from transcript
 
         Args:
@@ -41,17 +42,17 @@ class GoogleSTT:
         Returns:
             int: number of words in transcript
         """
-        audio = speech.RecognitionAudio(
-            uri=(f"gs://{bucket_name}/" + file_name))
-
-        res = self.__speech_client.long_running_recognize(
-            config=self.__config, audio=audio)
-        res = res.result(timeout=1200)
         words = 0
 
-        for result in res.results:
-            # 0 - high accurate output
-            words += len(result.alternatives[0].transcript.split())
-            # print(f"Transcript: {result.alternatives[0].transcript}")
+        with open(file_name, 'rb') as a_file:
+
+            audio = speech.RecognitionAudio(content=a_file.read())
+
+            res = self.__speech_client.recognize(
+                config=self.__config, audio=audio)
+
+            for result in res.results:
+                # 0 - high accurate output
+                words += len(result.alternatives[0].transcript.split())
 
         return words
