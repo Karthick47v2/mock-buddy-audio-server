@@ -1,6 +1,7 @@
 import librosa
 import numpy as np
 
+from collections import Counter
 from tensorflow import keras
 
 
@@ -94,4 +95,4 @@ class SER:
             np.argmax(mfcc_y_preds * 0.7 + mel_y_preds * 0.3, axis=1).tolist())
 
     def get_feedback(self):
-        return self.__fb
+        return dict(Counter(sum(self.__fb, [])))
