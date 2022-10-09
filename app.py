@@ -75,4 +75,4 @@ if __name__ == '__main__':
 
     # currently using eventlet server for socket production-env
     # socket will also take care of restful api calls
-    socketio.run(app, port=5000, debug=True)
+    socketio.run(app, port=5000)
